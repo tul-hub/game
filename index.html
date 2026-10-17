@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sprite Bench</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eceee6;--panel:#fbfbf6;--ink:#1f2a2e;--mute:#5d6b6e;--line:#cdd3c6;--acc:#1f7a6d;--on:#fff;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181b;--panel:#1c2226;--ink:#e6ece8;--mute:#8d9a98;--line:#2d373b;--acc:#4cc3ae;--on:#0b1512;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14181b;--panel:#1c2226;--ink:#e6ece8;--mute:#8d9a98;--line:#2d373b;--acc:#4cc3ae;--on:#0b1512;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+[hidden]{display:none!important}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em}
+h2{margin:0;font-size:18px}h3{margin:16px 0 0;font-size:15px}
+nav{display:flex;gap:4px;background:var(--line);padding:4px;border-radius:12px}
+nav button{border:0;background:none;padding:8px 14px;border-radius:9px;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+nav button.on{background:var(--panel)}
+main{max-width:1200px;margin:0 auto;padding:20px}
+.pane{display:none}.pane.on{display:block}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:820px){.cols{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+label{display:grid;gap:4px;font-size:13px;color:var(--mute)}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input[type=range]{padding:0}input[type=color]{padding:2px;height:36px;width:56px}input[type=checkbox]{width:auto}
+textarea{resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.row label{display:flex;gap:6px;align-items:center}.row input[type=range]{width:110px}
+button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.pri{background:var(--acc);color:var(--on);border-color:var(--acc)}
+.chip{border-radius:99px;padding:4px 11px;font-size:13px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hint{color:var(--mute);font-size:13px;margin:10px 0 0}
+.ck{background:conic-gradient(#8883 25%,#0000 0 50%,#8883 0 75%,#0000 0) 0 0/16px 16px,var(--panel)}
+.dk{background:#222}.lt{background:#fff}.gr{background:#3a8f4b}
+.wrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:8px;margin-top:12px}
+canvas{display:block;image-rendering:pixelated;max-width:none}
+.stage{display:grid;place-items:center;min-height:260px;padding:16px;border:1px solid var(--line);border-radius:8px;margin-top:12px;overflow:auto}
+.strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.strip canvas{height:56px;width:auto;max-width:120px;border:2px solid var(--acc);border-radius:4px;cursor:pointer}
+.strip canvas.off{opacity:.3;border-color:var(--line)}
+.drop{display:block;border:2px dashed var(--line);border-radius:10px;padding:14px;margin-top:12px;color:var(--ink)}
+.drop.over{border-color:var(--acc)}
+.btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px}
+.btns button{text-align:left}.btns small{display:block;font-weight:400;color:var(--mute)}
+#toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
+#toast.on{opacity:1}
+</style></head><body>
+<header><h1>Sprite Bench</h1>
+<nav id="tabs"><button data-t="prompt" class="on">1 Prompt</button><button data-t="cut">2 Cut</button><button data-t="anim">3 Animate</button><button data-t="save">4 Save</button><button data-t="game">5 Graphics</button></nav></header>
+<main>
+<section id="prompt" class="pane on"><div class="cols">
+<div class="card"><h2>Describe your sprite</h2><div id="pform" class="fg"></div>
+<div class="row"><button id="p_rand">Randomize</button><span class="hint" style="margin:0">Presets:</span><span id="presets"></span></div></div>
+<div class="card"><h2>Your prompt</h2>
+<label style="margin-top:12px">Paste this into your AI image tool<textarea id="p_out" rows="11"></textarea></label>
+<label id="negw" style="margin-top:10px">Negative prompt<textarea id="p_neg" rows="3"></textarea></label>
+<div class="row"><button class="pri" id="p_copy">Copy prompt</button><button id="p_save">Save as .txt</button><button id="p_go">Next: cut the sheet</button></div>
+<p class="hint">AI image tools rarely hit exact pixel sizes or frame positions. That is fine: the Cut step splits the result into frames for you.</p></div>
+</div></section>
+
+<section id="cut" class="pane"><div class="cols">
+<div class="card"><h2>Load a sprite sheet</h2>
+<label class="drop" id="drop">Drop an image here or choose a file<input type="file" id="file" accept="image/*" style="margin-top:8px"></label>
+<div class="fg">
+<label>Cut method<select id="c_mode"><option value="grid">Grid by columns and rows</option><option value="size">Grid by cell size</option><option value="auto">Auto-detect sprites</option></select></label>
+<label data-m="grid">Columns<input type="number" id="c_cols" value="4" min="1"></label>
+<label data-m="grid">Rows<input type="number" id="c_rows" value="1" min="1"></label>
+<label data-m="size">Cell width (px)<input type="number" id="c_w" value="64" min="1"></label>
+<label data-m="size">Cell height (px)<input type="number" id="c_h" value="64" min="1"></label>
+<label data-m="grid size">Outer margin (px)<input type="number" id="c_mg" value="0" min="0"></label>
+<label data-m="grid size">Gap between cells (px)<input type="number" id="c_sp" value="0" min="0"></label>
+<label data-m="auto">Join parts closer than (px)<input type="number" id="c_gap" value="2" min="0"></label>
+<label data-m="auto">Ignore specks under (px²)<input type="number" id="c_min" value="9" min="0"></label>
+<label>Align frames<select id="c_align"><option value="bottom">Bottom centre</option><option value="mid">Centre</option></select></label>
+<label><span><input type="checkbox" id="c_flip"> Flip all frames</span></label>
+</div>
+<h3>Remove a solid background</h3>
+<div class="row"><input type="color" id="bgc" value="#00ff00" aria-label="Background colour"><button id="c_pick">Pick from image</button><button id="c_tl">Use top-left pixel</button></div>
+<div class="fg"><label>Tolerance<input type="range" id="c_tol" min="0" max="120" value="24"></label><label>Edge softness<input type="range" id="c_soft" min="1" max="60" value="12"></label><label>Shrink edge (px)<input type="range" id="c_er" min="0" max="4" value="1"></label>
+<label><span><input type="checkbox" id="c_ds" checked> Remove colour spill on edges</span></label><label><span><input type="checkbox" id="c_sm" checked> Smooth edge</span></label></div>
+<div class="row"><button class="pri" id="c_rm">Make transparent</button><button id="c_cl">Clean edges only</button><button id="c_undo">Undo</button><button id="c_reset">Reset image</button></div>
+<p class="hint">Still see a green outline? Raise Shrink edge to 2 or 3, or press Clean edges only to repeat the cleanup. Auto-detect uses transparency, or the top-left pixel colour and the tolerance above when the image has no transparency.</p></div>
+<div class="card"><div class="row" style="margin:0"><h2>Preview</h2><label>Zoom <input type="range" id="zoom" min="1" max="8" value="2"></label><span class="hint" id="c_info" style="margin:0">No image yet</span></div>
+<div class="wrap ck"><canvas id="cv"></canvas></div>
+<p class="hint">Click a frame to switch it off or on. Drag thumbnails to reorder them.</p><div class="strip"></div></div>
+</div><div class="card" id="libcard"><h2>Sprite groups</h2><p class="hint">Keep frames switched on, name the group (run, walk, idle, jump, action, attack, hurt) and add it. Load another sheet and repeat, or import many images at once (each becomes its own group using the cut settings above). A one-frame group is a separate sprite. The game switches groups by state.</p>
+<div class="row"><label>Group name<input id="l_name" list="l_dl" placeholder="run"><datalist id="l_dl"><option>idle<option>walk<option>run<option>jump<option>action<option>attack<option>hurt</datalist></label><button class="pri" id="l_add">Add selected frames as group</button><button id="l_each">Add each frame as separate sprite</button><button id="l_merge">Group ticked sprites</button><span id="l_chips"></span></div>
+<label class="drop">Import many images (one group per file)<input type="file" id="l_files" accept="image/*" multiple style="margin-top:8px"></label><div id="l_list"></div></div></section>
+
+<section id="anim" class="pane"><div class="row" style="margin:0 0 12px"><button class="pri" id="am_t1">Single</button><button id="am_t2">Multi animation</button></div><div id="an_single"><div class="cols">
+<div class="card"><h2>Preview</h2><div class="stage ck" id="stage"><canvas id="a_cv" width="1" height="1"></canvas></div>
+<div class="row"><button class="pri" id="a_play">Pause</button><button id="a_prev">Previous</button><button id="a_next">Next</button><span id="a_lbl" class="hint" style="margin:0"></span></div></div>
+<div class="card"><h2>Playback</h2><div class="fg">
+<label>Speed: <b id="fpsv">8</b> frames per second<input type="range" id="a_fps" min="1" max="60" value="8"></label>
+<label>Play mode<select id="a_mode"><option value="loop">Loop</option><option value="pingpong">Ping-pong</option><option value="reverse">Reverse loop</option><option value="once">Play once</option></select></label>
+<label>Size: <b id="scv">3</b>×<input type="range" id="a_scale" min="1" max="10" value="3"></label>
+<label>Background<select id="a_bg"><option value="ck">Checkerboard</option><option value="dk">Dark</option><option value="lt">Light</option><option value="gr">Green</option></select></label>
+<label><span><input type="checkbox" id="a_smooth"> Smooth scaling (off keeps pixels crisp)</span></label>
+<label><span><input type="checkbox" id="a_onion"> Onion skin (faint previous frame)</span></label></div>
+<p class="hint">Switch frames off or drag them into a new order in the strip below. Changes carry into the saved files.</p><div class="strip"></div></div>
+</div></div>
+<div id="an_multi" hidden><div class="card"><h2>All animations</h2><p class="hint">Every group from the Cut step plays together. Export them all at once, or generate a game prompt below that uses them plus your Prompt step.</p><div id="am_grid" class="fg" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div><div class="row"><button class="pri" id="am_zip">Export all animations (ZIP)</button><button id="am_cut">Add more groups in Cut</button></div></div><div class="card"><h2>Game script prompt</h2><div id="qform" class="fg"></div>
+<label style="margin-top:12px">Prompt to give an AI that writes the game<textarea id="q_out" rows="14"></textarea></label>
+<div class="row"><button class="pri" id="q_copy">Copy prompt</button><button id="q_save">Save as .txt</button><button id="q_rnd">Surprise me</button></div>
+<p class="hint">The prompt updates as you change settings, and includes your sprite sheet details when frames are loaded.</p></div></div></section>
+
+<section id="save" class="pane"><div class="card" style="max-width:820px"><h2>Save your sprites</h2>
+<div class="fg">
+<label>File name<input id="e_name" value="sprite"></label>
+<label>Scale<select id="e_scale"><option>1</option><option>2</option><option>3</option><option>4</option><option>6</option><option>8</option></select></label>
+<label>Sheet columns (0 = automatic)<input type="number" id="e_cols" value="0" min="0"></label>
+<label>Padding between frames (px)<input type="number" id="e_pad" value="0" min="0"></label>
+<label>Sheet image format<select id="e_fmt"><option value="png">PNG (transparent)</option><option value="webp">WebP (transparent)</option><option value="jpg">JPG (solid background)</option></select></label>
+<label>Quality for WebP and JPG<input type="range" id="e_q" min="40" max="100" value="92"></label>
+<label>Solid background (JPG, WebM)<input type="color" id="e_bg" value="#ffffff"></label></div>
+<p class="hint" id="e_info"></p>
+<div class="btns" id="acts">
+<button class="pri" data-a="sheet">Sprite sheet image<small>One picture with every frame</small></button>
+<button data-a="frames">Frames as ZIP<small>One PNG per frame</small></button>
+<button data-a="json">Atlas data (JSON)<small>Works with Phaser, Pixi and similar</small></button>
+<button data-a="css">CSS animation (.txt)<small>Rename to .css after saving</small></button>
+<button data-a="gif">Animated GIF<small>Transparent, plays at your chosen speed</small></button>
+<button data-a="webm" id="b_webm">Animation video (WebM)<small>Plays at your chosen speed</small></button>
+<button class="pri" data-a="groups">All animation groups (ZIP)<small>Every group: sheets, frames, atlas, CSS</small></button>
+<button data-a="all">Everything as ZIP<small>Sheet, atlas, CSS and frames</small></button></div></div></section>
+<section id="game" class="pane"><div class="cols"><div class="card"><h2>Game graphics prompter</h2><p class="hint" style="margin-top:6px">Built from your Prompt step, its action, and every animation group. Defaults to maximum graphics.</p><div id="gx_form" class="fg"></div><label style="margin-top:12px">Graphics prompt for an AI that writes the game<textarea id="gx_out" rows="16"></textarea></label><div class="row"><button class="pri" id="gx_copy">Copy prompt</button><button id="gx_save">Save as .txt</button><button id="gx_rnd">Surprise me</button></div></div>
+<div class="card"><h2>Matching asset prompts</h2><label style="margin-top:12px">Backgrounds, tiles, enemies, effects and UI in your sprite style. Paste each into your image tool, then cut it in Cut<textarea id="gx_pack" rows="24"></textarea></label><div class="row"><button class="pri" id="gx_pcopy">Copy all</button><button id="gx_psave">Save as .txt</button></div></div></div><div class="cols">
+<div class="card"><h2>Quick playtest and export</h2><div id="gform" hidden></div>
+<div class="row"><button class="pri" id="g_play">Play preview</button><button id="g_rnd">New random level</button><button id="g_exp">Export single HTML</button><button class="pri" id="g_zip">Export HTML + CSS + JS + sprites (ZIP)</button></div>
+<p class="hint">Your animated frames from the Cut step become the player. Arrow keys or WASD move, Space jumps, X (or tapping the top strip) uses the action group, M mutes. On touch, tap the left, middle or right of the screen (top-down: drag).</p></div>
+<div class="card"><h2>Preview</h2><div class="stage dk"><canvas id="g_cv" width="640" height="360" style="max-width:100%;height:auto"></canvas></div></div></div>
+<div class="cols"><div class="card"><h2>Script the game</h2><style id="x_style"></style>
+<label style="margin-top:12px">Custom JS: paste code here. It gets <code>game</code> with <code>game.on(fn)</code> (every frame), <code>game.get()</code> and <code>game.set(key,value)</code><textarea id="x_js" rows="8" spellcheck="false" placeholder="game.on(()=>{ if(game.get().score>500) game.set('speed',5) })"></textarea></label>
+<label style="margin-top:10px">Custom CSS: use <code>body</code> and <code>canvas</code><textarea id="x_css" rows="6" spellcheck="false" placeholder="canvas{border:4px solid #4cc3ae;border-radius:12px;box-shadow:0 0 24px #4cc3ae88} body{background:#0b1220}"></textarea></label>
+<div class="row"><button class="pri" id="x_run">Apply and restart preview</button><span class="hint" id="x_msg" style="margin:0"></span></div>
+<p class="hint">Exports include them: custom.js and style.css in the ZIP, inline in the single HTML. Keys for set: score, lives, speed, gravity, jump.</p></div>
+<div class="card"><h2>Game menu prompt</h2><label style="margin-top:12px">Built from your sprite settings, groups, random missions and reward systems<textarea id="m_out" rows="14"></textarea></label>
+<div class="row"><button class="pri" id="m_copy">Copy menu prompt</button><button id="m_rnd">Randomize missions and systems</button></div></div></div>
+</section>
+</main><div id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let src=null,orig=null,frames=[],cc=null,zoom=2,picking=false,toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
+$$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.t));
+function go(t){$$('#tabs button').forEach(x=>x.classList.toggle('on',x.dataset.t==t));$$('.pane').forEach(p=>p.classList.toggle('on',p.id==t));if(t=='save')info();if(t=='game'||t=='anim')qgen();if(t!='game'&&eng){eng.stop();eng=null}}
+
+/* ---------- 1 Prompt ---------- */
+const O={type:["character","enemy or monster","NPC","item or pickup","weapon","tileset","visual effect","UI icon","vehicle","projectile"],
+style:["16-bit pixel art","8-bit pixel art","32-bit pixel art","hand-drawn cartoon","flat vector","chibi","isometric pixel art","painterly"],
+view:["side view","top-down view","3/4 top-down view","isometric view","front view","back view"],
+dir:["facing right","facing left","facing the camera","facing four directions"],
+action:["idle","walk cycle","run cycle","jump","attack","hurt","death","cast spell","custom"],
+bg:["solid flat green (#00ff00) background","transparent background","solid white background","solid magenta (#ff00ff) background"],
+outline:["clean 1px dark outline","coloured outline","no outline","thick dark outline"],
+shade:["flat shading","soft cel shading","dithered shading","high contrast lighting"],
+pal:["limited 16-colour palette","limited 32-colour palette","NES-style palette","Game Boy 4-shade green palette","vibrant palette","muted palette"]};
+const L={type:"Sprite type",style:"Art style",view:"Camera view",dir:"Direction",action:"Animation",bg:"Background",outline:"Outline",shade:"Shading",pal:"Palette"};
+const sel=(id,l,a)=>`<label>${l}<select id="${id}">${a.map(v=>`<option>${v}</option>`).join('')}</select></label>`;
+$('#pform').innerHTML=`<label style="grid-column:1/-1">What is it?<input id="p_subject" placeholder="e.g. armoured fox knight with a blue scarf"></label>`+
+['type','style','view','dir','action'].map(k=>sel('p_'+k,L[k],O[k])).join('')+
+`<label id="cw" hidden>Describe the animation<input id="p_custom" placeholder="e.g. spinning in place"></label>
+<label>Frames<input type="number" id="p_frames" value="8" min="1" max="64"></label>
+<label>Frame size<select id="p_size"><option>16</option><option>32</option><option selected>64</option><option>96</option><option>128</option><option>256</option></select></label>
+<label>Sheet layout<select id="p_layout"><option value="row">Single row</option><option value="grid">Square-ish grid</option></select></label>`+
+['bg','outline','shade','pal'].map(k=>sel('p_'+k,L[k],O[k])).join('')+
+`<label style="grid-column:1/-1">Extra details (optional)<input id="p_extra" placeholder="e.g. holds a glowing sword, red cape"></label>
+<label style="grid-column:1/-1">Write the prompt for<select id="p_target"><option value="sentence">ChatGPT, Gemini and other chat tools</option><option value="tags">Stable Diffusion (tags and negative prompt)</option><option value="mj">Midjourney</option></select></label>
+<label><span><input type="checkbox" id="p_cons" checked> Keep every frame consistent</span></label>
+<label><span><input type="checkbox" id="p_nl" checked> No text, grid lines or watermark</span></label>`;
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+function gen(){const v=i=>$('#'+i).value,n=Math.max(1,+v('p_frames')||1),cols=v('p_layout')=='row'?n:Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/cols),sz=v('p_size'),tg=v('p_target');
+const act=v('p_action')=='custom'?(v('p_custom')||'idle'):v('p_action'),subj=v('p_subject').trim()||'a small hero character',ex=v('p_extra').trim(),cons=$('#p_cons').checked,nl=$('#p_nl').checked;
+$('#cw').hidden=v('p_action')!='custom';$('#negw').hidden=tg!='tags';
+const sh=n>1?`${n}-frame ${act} animation laid out as a sprite sheet with ${cols} column${cols>1?'s':''} and ${rows} row${rows>1?'s':''}, every frame exactly ${sz}×${sz} px, evenly spaced, same size and ground line`:`single sprite, ${sz}×${sz} px`;
+let out,neg='';
+if(tg=='sentence')out=`Create a game sprite sheet of ${subj} (${v('p_type')}). Style: ${v('p_style')}, ${v('p_shade')}, ${v('p_outline')}, ${v('p_pal')}. Camera: ${v('p_view')}, ${v('p_dir')}. ${cap(sh)}. ${cons?'Keep proportions, colours and design identical in every frame; only the pose changes. ':''}Background: ${v('p_bg')}.${ex?' Extra details: '+ex+'.':''}${nl?' No text, labels, grid lines, borders or watermark.':''}`;
+else{out=['game sprite sheet',subj,v('p_type'),v('p_style'),v('p_shade'),v('p_outline'),v('p_pal'),v('p_view'),v('p_dir'),sh,cons&&'consistent design across all frames',v('p_bg'),ex].filter(Boolean).join(', ');
+if(tg=='mj')out+=` --ar ${cols}:${rows}${nl?' --no text, watermark, grid lines':''}`;else neg='blurry, anti-aliased, inconsistent proportions, extra limbs, cropped, overlapping frames, 3d render, photo, text, watermark, grid lines'}
+$('#p_out').value=out;$('#p_neg').value=neg}
+$('#pform').addEventListener('input',gen);
+const PRE=[["Hero walk",{p_subject:"armoured fox knight with a blue scarf",p_type:"character",p_view:"side view",p_dir:"facing right",p_action:"walk cycle",p_frames:8,p_size:64}],
+["Slime enemy",{p_subject:"angry green slime with sharp eyes",p_type:"enemy or monster",p_view:"side view",p_action:"idle",p_frames:6,p_size:64}],
+["Coin spin",{p_subject:"gold coin with a star emblem",p_type:"item or pickup",p_view:"front view",p_action:"custom",p_custom:"spinning in place",p_frames:8,p_size:32}],
+["Explosion",{p_subject:"orange fireball explosion with smoke",p_type:"visual effect",p_action:"custom",p_custom:"expanding then fading out",p_frames:12,p_size:128,p_layout:"grid"}]];
+$('#presets').innerHTML=PRE.map((p,i)=>`<button class="chip" data-i="${i}">${p[0]}</button>`).join(' ');
+$('#presets').onclick=e=>{const i=e.target.dataset.i;if(i==null)return;for(const[k,val]of Object.entries(PRE[i][1]))$('#'+k).value=val;gen()};
+const SUBJ=["tiny robot with a red antenna","hooded archer with a green cloak","purple bat with big ears","space cat in a bubble helmet","stone golem covered in moss","pirate skeleton with an eyepatch"];
+const pick=a=>a[Math.random()*a.length|0];
+$('#p_rand').onclick=()=>{['type','style','view','dir','shade','pal','outline'].forEach(k=>$('#p_'+k).value=pick(O[k]));$('#p_action').value=pick(O.action.slice(0,-1));$('#p_subject').value=pick(SUBJ);gen()};
+$('#p_copy').onclick=async()=>{const t=$('#p_out').value+($('#p_neg').value&&!$('#negw').hidden?'\n\nNegative prompt: '+$('#p_neg').value:'');try{await navigator.clipboard.writeText(t)}catch{$('#p_out').select();document.execCommand('copy')}toast('Prompt copied')};
+$('#p_save').onclick=()=>save('sprite-prompt.txt',$('#p_out').value+($('#negw').hidden?'':'\n\nNegative prompt: '+$('#p_neg').value));
+$('#p_go').onclick=()=>go('cut');
+
+/* ---------- 2 Cut ---------- */
+function load(f){if(!f||!f.type.startsWith('image/'))return toast('Choose an image file');return new Promise(ok=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{src=mk(im.width,im.height);src.getContext('2d',{willReadFrequently:true}).drawImage(im,0,0);orig=mk(im.width,im.height);orig.getContext('2d').drawImage(im,0,0);$('#e_name').value=f.name.replace(/\.[^.]+$/,'').replace(/[^\w-]+/g,'_')||'sprite';cut();ok()};im.src=r.result};r.readAsDataURL(f)})}
+$('#file').onchange=e=>load(e.target.files[0]);
+const dz=$('#drop');dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};dz.ondragleave=()=>dz.classList.remove('over');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');load(e.dataTransfer.files[0])};
+function modes(){const m=$('#c_mode').value;$$('[data-m]').forEach(l=>l.hidden=!l.dataset.m.split(' ').includes(m))}
+function cut(){if(!src)return;modes();cc=null;const m=$('#c_mode').value,mg=+$('#c_mg').value||0,sp=+$('#c_sp').value||0;frames=[];
+if(m=='auto')auto();else{const W=src.width-2*mg,H=src.height-2*mg;let cols,rows,cw,ch;
+if(m=='grid'){cols=Math.max(1,+$('#c_cols').value);rows=Math.max(1,+$('#c_rows').value);cw=Math.floor((W-sp*(cols-1))/cols);ch=Math.floor((H-sp*(rows-1))/rows)}
+else{cw=Math.max(1,+$('#c_w').value);ch=Math.max(1,+$('#c_h').value);cols=Math.floor((W+sp)/(cw+sp));rows=Math.floor((H+sp)/(ch+sp))}
+if(cw>0&&ch>0)for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)frames.push({x:mg+c*(cw+sp),y:mg+r*(ch+sp),w:cw,h:ch,on:true})}
+refresh()}
+function auto(){const w=src.width,h=src.height,d=src.getContext('2d').getImageData(0,0,w,h).data,tol=+$('#c_tol').value,mn=+$('#c_min').value,alpha=d[3]<10,m=new Uint8Array(w*h);
+for(let i=0;i<w*h;i++){const k=i*4;m[i]=d[k+3]>10&&(alpha||Math.max(Math.abs(d[k]-d[0]),Math.abs(d[k+1]-d[1]),Math.abs(d[k+2]-d[2]))>tol)?1:0}
+const seen=new Uint8Array(w*h),st=[];let B=[];
+for(let s=0;s<w*h;s++){if(!m[s]||seen[s])continue;let x0=w,y0=h,x1=0,y1=0,n=0;st.push(s);seen[s]=1;
+while(st.length){const p=st.pop(),px=p%w,py=(p/w)|0;n++;if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py;
+for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=px+dx,ny=py+dy;if(nx<0||ny<0||nx>=w||ny>=h)continue;const q=ny*w+nx;if(m[q]&&!seen[q]){seen[q]=1;st.push(q)}}}
+if(n>=mn)B.push({x:x0,y:y0,w:x1-x0+1,h:y1-y0+1})}
+const g=+$('#c_gap').value;let ch=1;
+while(ch){ch=0;out:for(let i=0;i<B.length;i++)for(let j=i+1;j<B.length;j++){const a=B[i],b=B[j];if(a.x-g<b.x+b.w&&b.x-g<a.x+a.w&&a.y-g<b.y+b.h&&b.y-g<a.y+a.h){const x0=Math.min(a.x,b.x),y0=Math.min(a.y,b.y);B[i]={x:x0,y:y0,w:Math.max(a.x+a.w,b.x+b.w)-x0,h:Math.max(a.y+a.h,b.y+b.h)-y0};B.splice(j,1);ch=1;break out}}}
+B.sort((a,b)=>a.y-b.y);const R=[];for(const b of B){const cy=b.y+b.h/2,r=R.find(r=>cy>=r.y&&cy<=r.y+r.h);if(r){r.l.push(b);r.y=Math.min(r.y,b.y);r.h=Math.max(r.h,b.y+b.h-r.y)}else R.push({y:b.y,h:b.h,l:[b]})}
+R.forEach(r=>r.l.sort((a,b)=>a.x-b.x).forEach(b=>frames.push({...b,on:true})))}
+function draw(){const c=$('#cv');if(!src){c.width=c.height=1;return}
+c.width=src.width;c.height=src.height;c.style.width=src.width*zoom+'px';const x=c.getContext('2d');x.drawImage(src,0,0);x.lineWidth=1.5/zoom;x.font=`${Math.max(9,11/zoom)}px sans-serif`;
+frames.forEach((f,i)=>{x.fillStyle=f.on?'#0000':'#d9363e66';x.fillRect(f.x,f.y,f.w,f.h);x.strokeStyle=f.on?'#e8b923':'#d9363e';x.strokeRect(f.x+.5,f.y+.5,f.w-1,f.h-1);x.fillStyle='#e8b923';x.fillText(i+1,f.x+2/zoom,f.y+11/zoom)})}
+function strips(){$$('.strip').forEach(s=>{s.innerHTML='';if(!frames.length)return;const k=cells();frames.forEach((f,i)=>{const t=mk(k.W,k.H);t.getContext('2d').drawImage(k.c[i],0,0);t.className=f.on?'':'off';t.title='Frame '+(i+1);t.onclick=()=>{f.on=!f.on;cc=null;refresh()};t.draggable=true;t.ondragstart=e=>e.dataTransfer.setData('text',i);t.ondragover=e=>e.preventDefault();t.ondrop=e=>{e.preventDefault();const a=+e.dataTransfer.getData('text');if(a!==i){frames.splice(i,0,frames.splice(a,1)[0]);refresh()}};s.appendChild(t)})})}
+function refresh(){draw();cc=null;strips();const n=frames.filter(f=>f.on).length;$('#c_info').textContent=src?`${src.width}×${src.height} px, ${n} of ${frames.length} frames on`:'No image yet';info()}
+$('#cut').addEventListener('input',e=>{if(e.target.matches('#file,#bgc,#c_tol,#c_soft,#c_er,#c_ds,#c_sm,#c_flip,#c_align')&&!(e.target.id=='c_tol'&&$('#c_mode').value=='auto'))return;if(e.target.id=='zoom')return;cut()});
+$('#c_mode').onchange=cut;$('#c_align').onchange=$('#c_flip').onchange=refresh;
+$('#zoom').oninput=e=>{zoom=+e.target.value;draw()};
+$('#c_pick').onclick=()=>{picking=true;toast('Click the background colour in the preview')};
+function hexAt(x,y){const d=src.getContext('2d').getImageData(x,y,1,1).data;return'#'+[...d].slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('')}
+$('#c_tl').onclick=()=>{if(src)$('#bgc').value=hexAt(0,0)};
+$('#cv').onclick=e=>{if(!src)return;const r=e.target.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*src.width|0,y=(e.clientY-r.top)/r.height*src.height|0;
+if(picking){picking=false;$('#bgc').value=hexAt(x,y);return toast('Colour picked. Now press Make transparent')}
+const i=frames.findIndex(f=>x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h);if(i>=0){frames[i].on=!frames[i].on;refresh()}};
+const hist=[];
+function clean(key){if(!src)return toast('Load an image first');const w=src.width,h=src.height,x=src.getContext('2d'),im=x.getImageData(0,0,w,h),d=im.data;hist.push(x.getImageData(0,0,w,h));if(hist.length>8)hist.shift();
+const K=[1,3,5].map(i=>parseInt($('#bgc').value.substr(i,2),16)),t=+$('#c_tol').value,sf=Math.max(1,+$('#c_soft').value);
+const al=()=>{const A=new Uint8Array(w*h);for(let i=0;i<A.length;i++)A[i]=d[i*4+3];return A};
+const edge=A=>{const E=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let X=0;X<w;X++){const p=y*w+X;if(A[p]&&((X>0&&!A[p-1])||(X<w-1&&!A[p+1])||(y>0&&!A[p-w])||(y<h-1&&!A[p+w])))E[p]=1}return E};
+if(key)for(let i=0;i<d.length;i+=4){const q=Math.hypot(d[i]-K[0],d[i+1]-K[1],d[i+2]-K[2])/1.732;if(q<=t)d[i+3]=0;else if(q<t+sf)d[i+3]*=(q-t)/sf}
+const m=Math.max(...K),dom=K.indexOf(m);
+if($('#c_ds').checked&&m-Math.max(...K.filter((_,j)=>j!=dom))>40){const T=al();for(let L=0;L<3;L++){const E=edge(T);for(let p=0;p<E.length;p++)if(E[p]){const i=p*4,lim=Math.max(...[0,1,2].filter(j=>j!=dom).map(j=>d[i+j]));if(d[i+dom]>lim)d[i+dom]=lim;T[p]=0}}}
+for(let n=+$('#c_er').value;n>0;n--){const E=edge(al());for(let p=0;p<E.length;p++)if(E[p])d[p*4+3]=0}
+if($('#c_sm').checked){const A=al(),E=edge(A);for(let p=0;p<E.length;p++)if(E[p]){const X=p%w,Y=p/w|0;let s=0,c=0;for(let j=-1;j<=1;j++)for(let k=-1;k<=1;k++){const a=X+k,b=Y+j;if(a>=0&&b>=0&&a<w&&b<h){s+=A[b*w+a];c++}}d[p*4+3]=s/c}}
+x.putImageData(im,0,0);cut();toast(key?'Background removed and edges cleaned':'Edges cleaned')}
+$('#c_rm').onclick=()=>clean(true);$('#c_cl').onclick=()=>clean(false);
+$('#c_undo').onclick=()=>{const s=hist.pop();if(!s)return toast('Nothing to undo');src.getContext('2d').putImageData(s,0,0);cut()};
+$('#c_reset').onclick=()=>{if(!orig)return;src.getContext('2d').clearRect(0,0,src.width,src.height);src.getContext('2d').drawImage(orig,0,0);cut()};
+
+/* ---------- 3 Animate ---------- */
+function cells(){if(cc)return cc;const a=frames.filter(f=>f.on),u=a.length?a:frames,W=Math.max(1,...u.map(f=>f.w)),H=Math.max(1,...u.map(f=>f.h)),b=$('#c_align').value=='bottom';
+cc={W,H,c:frames.map(f=>{const c=mk(W,H),x=c.getContext('2d');if($('#c_flip').checked){x.translate(W,0);x.scale(-1,1)}x.drawImage(src,f.x,f.y,f.w,f.h,(W-f.w)>>1,b?H-f.h:(H-f.h)>>1,f.w,f.h);return c})};return cc}
+const act=()=>frames.map((f,i)=>f.on?i:-1).filter(i=>i>=0);
+function order(){let a=act();const m=$('#a_mode').value;if(m=='reverse')a.reverse();if(m=='pingpong'&&a.length>2)a=a.concat(a.slice(1,-1).reverse());return a}
+let playing=true,pos=0,last=0,acc=0;
+function paint(o){const c=$('#a_cv');if(!o.length){c.width=c.height=1;c.getContext('2d').clearRect(0,0,1,1);$('#a_lbl').textContent='No frames. Load a sheet in Cut.';return}
+const k=cells();if(c.width!=k.W||c.height!=k.H){c.width=k.W;c.height=k.H}
+c.style.width=k.W*$('#a_scale').value+'px';c.style.imageRendering=$('#a_smooth').checked?'auto':'pixelated';
+pos=Math.min(Math.max(pos,0),o.length-1);const x=c.getContext('2d');x.clearRect(0,0,k.W,k.H);if($('#a_onion').checked&&o.length>1){x.globalAlpha=.3;x.drawImage(k.c[o[(pos+o.length-1)%o.length]],0,0);x.globalAlpha=1}x.drawImage(k.c[o[pos]],0,0);$('#a_lbl').textContent=`Frame ${pos+1} of ${o.length}`}
+function tick(t){requestAnimationFrame(tick);if(!$('#anim').classList.contains('on')){last=0;return}
+const dt=last?t-last:0;last=t;const o=order();if(playing&&o.length){acc+=dt;const st=1000/+$('#a_fps').value;while(acc>=st){acc-=st;pos++;if(pos>=o.length){if($('#a_mode').value=='once'){pos=o.length-1;playing=false;$('#a_play').textContent='Replay'}else pos=0}}}paint(o)}
+$('#a_play').onclick=()=>{const o=order();if(!playing&&pos>=o.length-1)pos=0;playing=!playing;$('#a_play').textContent=playing?'Pause':'Play'};
+const step=d=>{playing=false;$('#a_play').textContent='Play';const n=order().length||1;pos=(pos+d+n)%n};
+$('#a_prev').onclick=()=>step(-1);$('#a_next').onclick=()=>step(1);
+$('#a_fps').oninput=e=>{$('#fpsv').textContent=e.target.value;info()};$('#a_scale').oninput=e=>$('#scv').textContent=e.target.value;
+$('#a_bg').onchange=e=>$('#stage').className='stage '+e.target.value;
+$('#a_mode').onchange=()=>{pos=0;playing=true;$('#a_play').textContent='Pause'};
+
+/* ---------- 4 Save ---------- */
+async function save(name,data){const c=window.claude&&claude.use&&await claude.use('downloads');
+if(c){try{await c.save({filename:name,data});toast('Saved '+name)}catch(e){if(e.code!='declined')toast('Could not save: '+(e.message||e.code))}}
+else{const a=document.createElement('a');a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data]));a.download=name;a.click();toast('Saved '+name)}}
+const nm=()=>$('#e_name').value.replace(/[^\w-]+/g,'_')||'sprite';
+const FM={png:['image/png','png'],webp:['image/webp','webp'],jpg:['image/jpeg','jpg']};
+const tob=(c,m,q)=>new Promise(r=>c.toBlob(r,m,q));
+function sheet(){const a=act(),k=cells(),s=+$('#e_scale').value,p=+$('#e_pad').value||0;let cols=+$('#e_cols').value||Math.ceil(Math.sqrt(a.length));cols=Math.max(1,Math.min(cols,a.length));
+const rows=Math.ceil(a.length/cols),w=k.W*s,h=k.H*s,c=mk(p+cols*(w+p),p+rows*(h+p)),x=c.getContext('2d');x.imageSmoothingEnabled=false;
+if($('#e_fmt').value=='jpg'){x.fillStyle=$('#e_bg').value;x.fillRect(0,0,c.width,c.height)}
+const rects=a.map((i,j)=>{const rx=p+(j%cols)*(w+p),ry=p+((j/cols)|0)*(h+p);x.drawImage(k.c[i],rx,ry,w,h);return{x:rx,y:ry,w,h}});return{c,rects,w,h,n:a.length}}
+function info(){if(!src||!frames.length){$('#e_info').textContent='Load and cut a sprite sheet first.';return}if(!act().length){$('#e_info').textContent='All frames are switched off.';return}const s=sheet();$('#e_info').textContent=`${s.n} frames, each ${s.w}×${s.h} px. Sheet size ${s.c.width}×${s.c.height} px.`}
+['e_scale','e_cols','e_pad','e_fmt'].forEach(i=>$('#'+i).addEventListener('input',info));
+function atlas(s,n,e){const f={};s.rects.forEach((r,i)=>f[`${n}_${i}`]={frame:{x:r.x,y:r.y,w:r.w,h:r.h},rotated:false,trimmed:false,spriteSourceSize:{x:0,y:0,w:r.w,h:r.h},sourceSize:{w:r.w,h:r.h}});
+return JSON.stringify({frames:f,animations:{[n]:Object.keys(f)},meta:{app:'Sprite Bench',image:`${n}.${e}`,size:{w:s.c.width,h:s.c.height},frameWidth:s.w,frameHeight:s.h,frameCount:s.n,fps:+$('#a_fps').value}},null,2)}
+function css(s,n,e){const f=+$('#a_fps').value;return`.${n}{width:${s.w}px;height:${s.h}px;background:url(${n}.${e}) no-repeat;animation:${n} ${(s.n/f).toFixed(3)}s steps(1) infinite;image-rendering:pixelated}\n@keyframes ${n}{\n`+s.rects.map((r,i)=>`  ${(i/s.n*100).toFixed(3)}%{background-position:-${r.x}px -${r.y}px}`).join('\n')+'\n}\n'}
+async function frameFiles(n){const k=cells(),s=+$('#e_scale').value,o=[];for(const i of act()){const c=mk(k.W*s,k.H*s),x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(k.c[i],0,0,c.width,c.height);o.push({name:`${n}_${String(o.length+1).padStart(2,'0')}.png`,data:new Uint8Array(await(await tob(c,'image/png')).arrayBuffer())})}return o}
+function crc(b){const t=crc.t||(crc.t=[...Array(256)].map((_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;return c>>>0}));let r=-1;for(let i=0;i<b.length;i++)r=t[(r^b[i])&255]^(r>>>8);return(r^-1)>>>0}
+function zip(files){const P=[],C=[],E=new TextEncoder();let off=0,cs=0;
+for(const f of files){const n=E.encode(f.name),d=f.data,c=crc(d),h=new DataView(new ArrayBuffer(30)),e=new DataView(new ArrayBuffer(46));
+h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,n.length,true);P.push(h.buffer,n,d);
+e.setUint32(0,0x02014b50,true);e.setUint16(4,20,true);e.setUint16(6,20,true);e.setUint32(16,c,true);e.setUint32(20,d.length,true);e.setUint32(24,d.length,true);e.setUint16(28,n.length,true);e.setUint32(42,off,true);C.push(e.buffer,n);cs+=46+n.length;off+=30+n.length+d.length}
+const z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,files.length,true);z.setUint16(10,files.length,true);z.setUint32(12,cs,true);z.setUint32(16,off,true);return new Blob([...P,...C,z.buffer],{type:'application/zip'})}
+async function webm(n){const o=order(),k=cells(),s=+$('#e_scale').value,fps=+$('#a_fps').value,c=mk(k.W*s,k.H*s),x=c.getContext('2d');x.imageSmoothingEnabled=false;
+const rec=new MediaRecorder(c.captureStream(),{mimeType:'video/webm'}),ch=[];rec.ondataavailable=e=>ch.push(e.data);const done=new Promise(r=>rec.onstop=r);rec.start();toast('Recording…');
+for(const i of o){x.fillStyle=$('#e_bg').value;x.fillRect(0,0,c.width,c.height);x.drawImage(k.c[i],0,0,c.width,c.height);await sleep(1000/fps)}
+await sleep(100);rec.stop();await done;save(n+'.webm',new Blob(ch,{type:'video/webm'}))}
+function lzw(px,B){let bits=9,next=258,D=new Map(),acc=0,nb=0,blk=[];const put=c=>{acc|=c<<nb;nb+=bits;while(nb>=8){blk.push(acc&255);acc>>=8;nb-=8;if(blk.length==255){B.push(255,...blk);blk=[]}}if(next>=(1<<bits)&&bits<12)bits++};
+put(256);let cur=px[0];for(let i=1;i<px.length;i++){const c=px[i],k=cur<<8|c;if(D.has(k))cur=D.get(k);else{put(cur);if(next<4096)D.set(k,next++);else{put(256);bits=9;next=258;D.clear()}cur=c}}
+put(cur);put(257);if(nb>0)blk.push(acc&255);if(blk.length)B.push(blk.length,...blk);B.push(0)}
+function gif(){const o=order(),k=cells(),s=+$('#e_scale').value,W=k.W*s,H=k.H*s,fps=+$('#a_fps').value;
+const fr=o.map(i=>{const c=mk(W,H),x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(k.c[i],0,0,W,H);return x.getImageData(0,0,W,H).data});
+const U=new Map();let ex=true;out:for(const d of fr)for(let p=0;p<d.length;p+=4){if(d[p+3]<128)continue;const key=d[p]<<16|d[p+1]<<8|d[p+2];if(!U.has(key)){if(U.size>=255){ex=false;break out}U.set(key,U.size)}}
+const pal=new Uint8Array(768),T=ex?U.size:216;
+if(ex)U.forEach((i,key)=>{pal[i*3]=key>>16;pal[i*3+1]=key>>8&255;pal[i*3+2]=key&255});else for(let i=0;i<216;i++){pal[i*3]=(i/36|0)*51;pal[i*3+1]=((i/6|0)%6)*51;pal[i*3+2]=(i%6)*51}
+const B=[],w16=v=>B.push(v&255,v>>8&255);B.push(71,73,70,56,57,97);w16(W);w16(H);B.push(0xF7,0,0,...pal,0x21,0xFF,11,...[...'NETSCAPE2.0'].map(c=>c.charCodeAt(0)),3,1,0,0,0);
+const dl=Math.max(2,Math.round(100/fps));
+for(const d of fr){const ix=new Uint8Array(W*H);for(let p=0,q=0;p<d.length;p+=4,q++)ix[q]=d[p+3]<128?T:ex?U.get(d[p]<<16|d[p+1]<<8|d[p+2]):Math.round(d[p]/51)*36+Math.round(d[p+1]/51)*6+Math.round(d[p+2]/51);
+B.push(0x21,0xF9,4,9,dl&255,dl>>8,T,0,0x2C);w16(0);w16(0);w16(W);w16(H);B.push(0,8);lzw(ix,B)}
+B.push(0x3B);return new Blob([new Uint8Array(B)],{type:'image/gif'})}
+if(!window.MediaRecorder)$('#b_webm').hidden=true;
+$('#acts').onclick=async e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.a=='groups')return exAll();if(!src||!act().length)return toast('Load a sheet in Cut and keep at least one frame on');
+const a=b.dataset.a,n=nm(),[mime,ext]=FM[$('#e_fmt').value],q=$('#e_q').value/100;
+if(a=='webm')return webm(n);
+if(a=='gif')return save(n+'.gif',gif());
+if(a=='frames')return save(n+'-frames.zip',zip(await frameFiles(n)));
+const s=sheet();
+if(a=='sheet')return save(`${n}.${ext}`,await tob(s.c,mime,q));
+if(a=='json')return save(n+'.json',atlas(s,n,ext));
+if(a=='css')return save(n+'.css.txt',css(s,n,ext));
+const enc=new TextEncoder(),img=new Uint8Array(await(await tob(s.c,mime,q)).arrayBuffer()),fr=await frameFiles(n);
+save(n+'-all.zip',zip([{name:`${n}.${ext}`,data:img},{name:n+'.json',data:enc.encode(atlas(s,n,ext))},{name:n+'.css',data:enc.encode(css(s,n,ext))},...fr.map(f=>({name:'frames/'+f.name,data:f.data}))]))};
+
+/* ---------- 5 Game ---------- */
+function Engine(cv,C){
+const hk=[],x=cv.getContext('2d'),W=cv.width=C.W,H=cv.height=C.H,K={},pl=C.mode=='platform',im=new Image();let au,mt,aud,raf,st='title',cam=0,t=0,sc=0,lives=0,P,plats=[],coins=[],ens=[],LW=W,hit=0,s=C.seed,mute=false,atk=0,combo=0,ct=0,shake=0,mg=0,ps=[],ms=[],ups=[],kills=0,got=0,nohit=0,msg='',mt2=0,pw={S:0,M:0};
+const A=C.anims||(C.sprite?{idle:C.sprite}:{}),AI={},FK=Object.keys(A)[0];for(const k in A){AI[k]=new Image();AI[k].src=A[k].src}
+const SV=(()=>{try{return JSON.parse(localStorage.getItem('sb_'+C.title))||{}}catch(e){return{}}})();SV.xp=SV.xp||0;SV.best=SV.best||0;
+const sv=()=>{try{localStorage.setItem('sb_'+C.title,JSON.stringify(SV))}catch(e){}},lv=()=>1+Math.floor(Math.sqrt(SV.xp/50)),fin=()=>{SV.xp+=sc/10|0;SV.best=Math.max(SV.best,sc);sv()};
+const MP=[['Collect # coins',[5,8,12],()=>got],['Defeat # enemies',[2,3,5],()=>kills],['Reach # points',[200,400,700],()=>sc],['Build a x# combo',[3,4,5],()=>mg],['Stay unhurt for # seconds',[10,20,30],()=>nohit/60|0]];
+function mis(){ms=MP.filter(m=>C.enemies>0||m[0][0]!='D').sort(()=>Math.random()-.5).slice(0,3).map(m=>{let n=m[1][Math.random()*3|0];if(m[0][0]=='C')n=Math.min(n,C.coins);return{t:m[0].replace('#',n),n,f:m[2],d:0}})}
+function burst(X,Y,c){for(let i=0;i<14;i++)ps.push({x:X,y:Y,vx:(Math.random()-.5)*6,vy:(Math.random()-.8)*6,l:30,c})}
+if(C.musicSrc&&C.music){aud=new Audio(C.musicSrc);aud.loop=true;aud.volume=C.vol}cv.style.touchAction='none';
+const R=()=>(s=s*16807%2147483647)/2147483647;
+function tone(f,d,ty,v,e,m){if(!au||mute||!(m?C.music:C.sfx))return;const o=au.createOscillator(),g=au.createGain(),n=au.currentTime;o.type=ty||'square';o.frequency.setValueAtTime(f,n);if(e)o.frequency.exponentialRampToValueAtTime(e,n+d);g.gain.setValueAtTime((v||.2)*C.vol,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(au.destination);o.start();o.stop(n+d)}
+const SF={jump:()=>tone(300,.15,'square',.2,700),coin:()=>{tone(880,.08);setTimeout(()=>tone(1320,.12),70)},hit:()=>tone(220,.3,'sawtooth',.3,50),win:()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.2),i*120))};
+function music(on){clearInterval(mt);if(aud){if(on&&!mute)aud.play().catch(()=>{});else aud.pause();return}if(!on||!C.music)return;let n=0;const S=[0,3,7,10,12,10,7,3];mt=setInterval(()=>{const b=n>>3&1?5:0;tone(220*2**((S[n%8]+b)/12),.18,'triangle',.14,0,1);if(n%4==0)tone(55*2**(b/12),.25,'sine',.3,0,1);n++},190)}
+function build(){s=C.seed;LW=pl?W*3:W;plats=[];if(pl){plats.push({x:0,y:H-30,w:LW,h:30});for(let i=0;i<16;i++)plats.push({x:120+i*(LW-240)/16,y:H-90-R()*120,w:70+R()*70,h:12})}
+coins=[];for(let i=0;i<C.coins;i++){if(pl){const p=plats[1+(R()*16|0)];coins.push({x:p.x+R()*(p.w-12),y:p.y-24})}else coins.push({x:30+R()*(W-60),y:30+R()*(H-60)})}
+ens=[];for(let i=0;i<C.enemies;i++){if(pl){const p=plats[R()*17|0];ens.push({x:p.x+R()*(p.w/2),y:p.y-22,w:22,h:22,vx:(R()<.5?-1:1)*(.6+R()),p})}else ens.push({x:60+R()*(W-120),y:30+R()*(H-90),w:22,h:22,vx:(R()<.5?-1:1)*(1+R()*1.5),vy:(R()<.5?-1:1)*(1+R()*1.5)})}
+ups=[];for(let i=0;i<2;i++){const k=i?'M':'S';if(pl){const p=plats[1+(R()*16|0)];ups.push({k,x:p.x+R()*(p.w-16),y:p.y-30})}else ups.push({k,x:30+R()*(W-60),y:30+R()*(H-60)})}
+const f0=A.idle||A[FK],f=f0?f0.rects[0]:{w:16,h:16};P={x:30,y:H-80,w:f.w*C.sc,h:f.h*C.sc,vx:0,vy:0,g:0,d:1}}
+function start(){if(st!='title')mis();got=kills=mg=nohit=combo=atk=0;pw={S:0,M:0};if(!au)try{au=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}if(au&&au.state=='suspended')au.resume();sc=0;lives=C.lives;build();st='play';cam=0;music(1)}
+function die(){if(pw.S>0){pw.S=0;hit=60;SF.hit();return}lives--;hit=90;nohit=0;combo=0;shake=14;SF.hit();if(lives<=0){st='over';fin();music(0)}else if(pl)P.vy=-6}
+function upd(){t++;if(st!='play')return;const L=K.ArrowLeft||K.a||K.L,Rt=K.ArrowRight||K.d||K.Rr,U=K.ArrowUp||K.w||K[' ']||K.J,D=K.ArrowDown||K.s;
+P.vx=((Rt?1:0)-(L?1:0))*C.speed;if(P.vx)P.d=P.vx<0?-1:1;
+if(pl){P.vy+=C.gravity;if(U&&P.g){P.vy=-C.jump;SF.jump()}}else{P.vy=((D?1:0)-(U?1:0))*C.speed;if(K.ptr){const dx=K.ptr.x+cam-P.x-P.w/2,dy=K.ptr.y-P.y-P.h/2,m=Math.hypot(dx,dy);if(m>8){P.vx=dx/m*C.speed;P.vy=dy/m*C.speed;P.d=P.vx<0?-1:1}}}
+P.x=Math.max(0,Math.min(LW-P.w,P.x+P.vx));P.y+=P.vy;P.g=0;
+if(pl){for(const p of plats)if(P.vy>=0&&P.x+P.w>p.x&&P.x<p.x+p.w&&P.y+P.h>=p.y&&P.y+P.h-P.vy<=p.y+2){P.y=p.y-P.h;P.vy=0;P.g=1}}else P.y=Math.max(0,Math.min(H-P.h,P.y));
+cam=Math.max(0,Math.min(LW-W,P.x-W/2));hit=Math.max(0,hit-1);
+if(pw.S>0)pw.S--;if(pw.M>0)pw.M--;nohit++;if(atk>0)atk--;if(ct>0&&--ct==0)combo=0;ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.2;p.l--});ps=ps.filter(p=>p.l>0);
+if((K.x||K.X||K.j)&&!atk&&(A.action||A.attack)){atk=18;SF.jump()}
+if(pw.M>0)for(const c of coins)if(!c.got){const dx=P.x+P.w/2-c.x-6,dy=P.y+P.h/2-c.y-6,m=Math.hypot(dx,dy);if(m<140&&m>1){c.x+=dx/m*4;c.y+=dy/m*4}}
+for(const u of ups)if(!u.got&&Math.abs(u.x+8-P.x-P.w/2)<P.w/2+12&&Math.abs(u.y+8-P.y-P.h/2)<P.h/2+12){u.got=1;pw[u.k]=600;msg=(u.k=='S'?'Shield':'Magnet')+' on!';mt2=90;SF.win();burst(u.x,u.y,'#9ff')}
+for(const m of ms)if(!m.d&&m.f()>=m.n){m.d=1;sc+=100;SV.xp+=40;burst(P.x,P.y,'#ffd23f');msg='Mission complete: '+m.t;mt2=150;SF.win()}
+for(const c of coins)if(!c.got&&Math.abs(c.x+6-P.x-P.w/2)<P.w/2+8&&Math.abs(c.y+6-P.y-P.h/2)<P.h/2+8){c.got=1;got++;ct=120;combo=Math.min(5,combo+1);mg=Math.max(mg,combo);sc+=10*combo;SF.coin();burst(c.x,c.y,'#ffd23f')}
+for(const e of ens){if(e.dead)continue;e.x+=e.vx;if(pl){if(e.x<e.p.x||e.x+e.w>e.p.x+e.p.w)e.vx*=-1}else{e.y+=e.vy;if(e.x<0||e.x+e.w>W)e.vx*=-1;if(e.y<0||e.y+e.h>H)e.vy*=-1}
+if(atk>8&&Math.abs(e.x+e.w/2-P.x-P.w/2)<P.w+30&&Math.abs(e.y-P.y)<P.h){e.dead=1;kills++;sc+=50;burst(e.x,e.y,'#d9363e');SF.coin();continue}if(P.x<e.x+e.w&&P.x+P.w>e.x&&P.y<e.y+e.h&&P.y+P.h>e.y){if(pl&&P.vy>0&&P.y+P.h-e.y<16){e.dead=1;kills++;burst(e.x,e.y,'#d9363e');P.vy=-7;sc+=50;SF.coin()}else if(!hit)die()}}
+if(st=='play'&&(pl?P.x>LW-60:coins.every(c=>c.got))){st='win';fin();SF.win();music(0)}}
+function drw(){x.save();if(shake>0){x.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake--}drw0();ui();x.restore()}
+function ui(){x.textAlign='left';if(st=='play'){x.font='bold 13px sans-serif';x.fillStyle='#fff';ms.forEach((m,i)=>{x.globalAlpha=m.d?.5:1;x.fillText((m.d?'✔ ':'• ')+m.t+' ('+Math.min(m.n,m.f())+'/'+m.n+')',12,46+i*17)});x.globalAlpha=1;
+if(combo>1){x.fillStyle='#ffd23f';x.font='bold 22px sans-serif';x.textAlign='right';x.fillText('COMBO x'+combo,W-12,28)}
+x.textAlign='right';x.font='bold 13px sans-serif';x.fillStyle='#9ff';x.fillText((pw.S>0?'Shield ':'')+(pw.M>0?'Magnet ':'')+'Lv '+lv()+'  Best '+SV.best,W-12,combo>1?48:24);
+if(mt2>0){mt2--;x.textAlign='center';x.fillStyle='#ffd23f';x.font='bold 18px sans-serif';x.fillText(msg,W/2,70)}return}
+x.fillStyle='#000b';x.fillRect(0,0,W,H);x.textAlign='center';x.fillStyle='#fff';const y0=H*.2;x.font='bold 34px sans-serif';x.fillText(st=='title'?C.title:st=='win'?'Level clear!':'Game over',W/2,y0);
+x.font='16px sans-serif';if(st!='title')x.fillText('Score '+sc+'  -  Missions '+ms.filter(m=>m.d).length+'/'+ms.length+'  -  Best '+SV.best,W/2,y0+26);
+const L=lv(),a=50*(L-1)**2,b=50*L*L;x.fillStyle='#fff3';x.fillRect(W/2-100,y0+42,200,10);x.fillStyle='#4cc3ae';x.fillRect(W/2-100,y0+42,200*Math.min(1,(SV.xp-a)/(b-a)),10);
+x.fillStyle='#fff';x.font='bold 13px sans-serif';x.fillText('Level '+L+'  -  '+SV.xp+' XP',W/2,y0+70);x.fillText('MISSIONS',W/2,y0+96);x.font='14px sans-serif';ms.forEach((m,i)=>x.fillText('* '+m.t,W/2,y0+116+i*20));
+x.font='bold 18px sans-serif';x.fillText('Press Space or tap to '+(st=='title'?'start':'play again'),W/2,H-36)}
+function drw0(){x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.fillStyle='#ffffff22';for(let i=0;i<40;i++)x.fillRect(((i*97-cam*.3)%W+W)%W,(i*53)%H,2,2);
+if(P){x.save();x.translate(-cam|0,0);x.fillStyle=C.fg;for(const p of plats)x.fillRect(p.x,p.y,p.w,p.h);
+if(pl){x.fillStyle='#fff';x.fillRect(LW-50,H-90,4,60);x.fillStyle='#e8b923';x.fillRect(LW-46,H-90,24,16)}
+x.fillStyle='#ffd23f';for(const c of coins)if(!c.got){x.beginPath();x.arc(c.x+6,c.y+6+Math.sin(t/10+c.x)*2,6,0,7);x.fill()}
+for(const u of ups)if(!u.got){const o=Math.sin(t/8)*3;x.fillStyle=u.k=='S'?'#4cc3ae':'#c06bff';x.beginPath();x.arc(u.x+8,u.y+8+o,9,0,7);x.fill();x.fillStyle='#fff';x.font='bold 11px sans-serif';x.textAlign='center';x.fillText(u.k,u.x+8,u.y+12+o)}
+for(const p of ps){x.fillStyle=p.c;x.fillRect(p.x,p.y,3,3)}
+for(const e of ens)if(!e.dead){x.fillStyle='#d9363e';x.fillRect(e.x,e.y,e.w,e.h);x.fillStyle='#fff';x.fillRect(e.x+4,e.y+6,5,5);x.fillRect(e.x+13,e.y+6,5,5)}
+if(!(hit&&t%8<4)){const mv=P.vx||(!pl&&P.vy),kn=(atk>0&&(A.action?'action':A.attack?'attack':0))||(hit>60&&A.hurt&&'hurt')||(pl&&!P.g&&A.jump&&'jump')||(mv?(A.run?'run':A.walk?'walk':FK):(A.idle?'idle':FK)),S=A[kn]||A[FK];
+if(S){const f=S.rects[(!mv&&!atk&&Object.keys(A).length<2)?0:(t*S.fps/60|0)%S.rects.length],dw=f.w*C.sc,dh=f.h*C.sc;x.save();x.translate(P.x+(P.d<0?P.w:0),P.y);x.scale(P.d,1);x.imageSmoothingEnabled=false;x.drawImage(AI[kn]||AI[FK],f.x,f.y,f.w,f.h,(P.w-dw)/2,P.h-dh,dw,dh);x.restore()}else{x.fillStyle='#4cc3ae';x.fillRect(P.x,P.y,P.w,P.h)}}
+x.restore();x.fillStyle='#fff';x.font='bold 18px sans-serif';x.textAlign='left';x.fillText('Score '+sc+'   Lives '+'♥'.repeat(Math.max(0,lives)),12,24)}
+if(0){x.fillStyle='#000a';x.fillRect(0,0,W,H);x.fillStyle='#fff';x.textAlign='center';x.font='bold 32px sans-serif';x.fillText(st=='title'?C.title:st=='win'?'You win! Score '+sc:'Game over',W/2,H/2-10);x.font='16px sans-serif';x.fillText('Press Space or tap to '+(st=='title'?'start':'play again'),W/2,H/2+24)}}
+const kd=e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;K[e.key]=1;if(e.key=='m'||e.key=='M'){mute=!mute;music(st=='play')}if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();if(st!='play'&&(e.key==' '||e.key=='Enter'))start()},ku=e=>{K[e.key]=0};
+const pd=e=>{const r=cv.getBoundingClientRect(),f=(e.clientX-r.left)/r.width,g=(e.clientY-r.top)/r.height;if(st!='play')return start();if(g<.18){K.x=1;setTimeout(()=>K.x=0,120);return}if(pl){K.L=f<.33;K.Rr=f>.66;K.J=f>=.33&&f<=.66}else K.ptr={x:f*W,y:g*H}},pu=()=>{K.L=K.Rr=K.J=0;K.ptr=null};
+cv.addEventListener('pointerdown',pd);cv.addEventListener('pointerup',pu);cv.addEventListener('pointerleave',pu);cv.addEventListener('pointermove',e=>{if(K.ptr)pd(e)});addEventListener('keydown',kd);addEventListener('keyup',ku);
+mis();const lp=()=>{upd();drw();hk.forEach(f=>{try{f()}catch(e){}});raf=requestAnimationFrame(lp)};lp();
+return{on:f=>hk.push(f),get:()=>({score:sc,lives,state:st,player:P,level:lv(),time:t}),set:(k,v)=>{if(k=='score')sc=v;else if(k=='lives')lives=v;else C[k]=v},stop(){cancelAnimationFrame(raf);clearInterval(mt);if(aud)aud.pause();removeEventListener('keydown',kd);removeEventListener('keyup',ku);if(au&&au.close)au.close()}}}
+
+const LIB=[];
+const gname=()=>$('#l_name').value.trim().toLowerCase().replace(/[^\w-]+/g,'_')||'group'+(LIB.length+1);
+function addClip(name,idx){const k=cells(),c=mk(k.W*idx.length,k.H);idx.forEach((i,j)=>c.getContext('2d').drawImage(k.c[i],j*k.W,0));const e={name,c,W:k.W,H:k.H,n:idx.length,fps:+$('#a_fps').value},o=LIB.findIndex(l=>l.name==name);if(o>=0)LIB[o]=e;else LIB.push(e);libUI()}
+function libUI(){const L=$('#l_list');L.innerHTML='';LIB.forEach((l,i)=>{const d=document.createElement('div');d.className='row';const t=mk(l.c.width,l.c.height);t.getContext('2d').drawImage(l.c,0,0);t.className='ck';t.style.cssText='height:44px;width:auto;max-width:220px;border:1px solid var(--line);border-radius:4px';
+const n=document.createElement('input');n.value=l.name;n.style.width='120px';n.onchange=()=>{l.name=n.value.trim().toLowerCase().replace(/[^\w-]+/g,'_')||l.name;qgen()};
+const f=document.createElement('input');f.type='number';f.value=l.fps;f.min=1;f.max=60;f.title='Frames per second';f.style.width='70px';f.onchange=()=>l.fps=+f.value||8;
+const s=document.createElement('span');s.className='hint';s.style.margin=0;s.textContent=l.n+' frame'+(l.n>1?'s':'')+' · '+l.W+'×'+l.H;
+const b=document.createElement('button');b.textContent='Remove';b.onclick=()=>{LIB.splice(i,1);libUI()};const q=document.createElement('input');q.type='checkbox';q.checked=!!l.sel;q.title='Tick to group';q.onchange=()=>l.sel=q.checked;d.append(q,t,n,f,s,b);L.appendChild(d)});qgen();mv()}
+$('#l_add').onclick=()=>{if(!src||!act().length)return toast('Load a sheet and keep some frames on');addClip(gname(),act());$('#l_name').value='';toast('Group added')};
+$('#l_each').onclick=()=>{if(!src||!act().length)return toast('Load a sheet and keep some frames on');const b=gname();act().forEach((i,j)=>addClip(b+'_'+(j+1),[i]));$('#l_name').value='';toast('Separate sprites added')};
+$('#l_files').onchange=async e=>{for(const f of e.target.files){await load(f);if(act().length)addClip(f.name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^\w-]+/g,'_'),act())}e.target.value='';toast(LIB.length+' groups in library')};
+$('#l_chips').innerHTML=['idle','walk','run','jump','action','attack','hurt'].map(n=>`<button class="chip" data-n="${n}">${n}</button>`).join(' ');
+$('#l_chips').onclick=e=>{if(e.target.dataset.n)$('#l_name').value=e.target.dataset.n};
+$('#l_merge').onclick=()=>{const t=LIB.filter(l=>l.sel);if(!t.length)return toast('Tick sprites in the list first');const nm2=gname(),W=Math.max(...t.map(l=>l.W)),H=Math.max(...t.map(l=>l.H)),n=t.reduce((a,l)=>a+l.n,0),c=mk(W*n,H),x=c.getContext('2d');let j=0;t.forEach(l=>{for(let i=0;i<l.n;i++){x.drawImage(l.c,i*l.W,0,l.W,l.H,j*W+((W-l.W)>>1),H-l.H,l.W,l.H);j++}});const keep=LIB.filter(l=>!l.sel),fps=t[0].fps;LIB.length=0;LIB.push(...keep,{name:nm2,c,W,H,n,fps});$('#l_name').value='';libUI();toast('Grouped as '+nm2)};
+const xcss=()=>$('#x_css').value,xjs=()=>$('#x_js').value;
+function xapply(c){$('#x_style').textContent=xcss().replace(/\bbody\b/g,'#game .stage').replace(/\bcanvas\b/g,'#g_cv');try{new Function('game','CONFIG',xjs())(eng,c);$('#x_msg').textContent='Script ran OK'}catch(e){$('#x_msg').textContent='Script error: '+e.message}}
+$('#x_run').onclick=()=>play();
+const QSY=["daily missions that reroll at midnight","7-day login streak rewards","coin shop to unlock hero skins and trails","achievement badges with pop-up toasts","lucky spin wheel after each run","combo meter with a score multiplier","XP levels that unlock harder missions","a boss or special-event run every 5th game","treasure chests dropped by enemies","1 to 3 star ratings per level"];
+function sprDesc(){const v=i=>$('#'+i).value;return `${v('p_subject').trim()||'small hero'} (${v('p_type')}, ${v('p_style')}, ${v('p_view')}, ${v('p_dir')}, ${v('p_outline')}, ${v('p_shade')}, ${v('p_pal')})`}
+function menuTxt(){const g=LIB.length?LIB.map(l=>`${l.name} (${l.n} frame${l.n>1?'s':''}, ${l.W}×${l.H})`).join(', '):'the loaded sprite sheet';return `MENU\nHero on the menu: ${sprDesc()}. Animate it with the idle loop from these sprite groups: ${g}. Theme the whole menu (colours, buttons, fonts, panels) to match the ${$('#p_style').value} look and the ${$('#p_pal').value}. Buttons: Play, Missions, Shop and Skins, Settings. Show level, XP bar, coins and best score, floating particles, hover and press effects, and a screen transition into the game.\n\nRANDOM MISSIONS\nEach run, shuffle and pick 3 missions from: ${qMis.join('; ')}. Show them on the menu and in the HUD with progress bars, reward bonus score, XP and coins, and allow one reroll per day.\n\nATTRACTIVE SYSTEMS\n${qSys.map(s=>'- '+s).join('\n')}`}
+function mgen(){$('#m_out').value=`You are an expert HTML5 game UI developer. Build the main menu, mission board and rewards system for a 2D game called "${$('#g_title').value||'My Sprite Game'}". Deliver one self-contained .html file with inline CSS and JavaScript, no libraries.\n\n${menuTxt()}\n\nDELIVERABLE\nReply with the full code in a single code block, then three short lines on how to run it and tweak the missions.`}
+$('#m_rnd').onclick=()=>{roll();qgen();toast('New missions and systems')};
+$('#m_copy').onclick=async()=>{try{await navigator.clipboard.writeText($('#m_out').value)}catch{$('#m_out').select();document.execCommand('copy')}toast('Menu prompt copied')};
+let eng=null,musicData=null;
+const gr=(id,l,a,b,v,s)=>`<label>${l}<input type="range" id="${id}" min="${a}" max="${b}" value="${v}"${s?` step="${s}"`:''}></label>`;
+$('#gform').innerHTML=`<label style="grid-column:1/-1">Game title<input id="g_title" value="My Sprite Game"></label>
+<label>Game type<select id="g_mode"><option value="platform">Platformer</option><option value="topdown">Top-down collector</option></select></label>
+<label>Screen size<select id="g_size"><option value="640x360">640×360 wide</option><option value="800x450">800×450 wide</option><option value="480x640">480×640 portrait</option></select></label>`+
+gr('g_speed','Move speed',1,8,3)+gr('g_jump','Jump power',6,16,11)+gr('g_grav','Gravity',.3,1,.6,.05)+gr('g_lives','Lives',1,9,3)+gr('g_coins','Coins',3,30,10)+gr('g_en','Enemies',0,12,4)+gr('g_sc','Sprite scale',1,6,2)+gr('g_vol','Volume',0,100,60)+
+`<label>Level seed<input type="number" id="g_seed" value="7" min="1"></label><label>Sky colour<input type="color" id="g_bg" value="#1d2b53"></label><label>Ground colour<input type="color" id="g_fg" value="#2f7a4d"></label>
+<label><span><input type="checkbox" id="g_sp" checked> Use my sprite frames</span></label><label><span><input type="checkbox" id="g_sfx" checked> Sound effects</span></label><label><span><input type="checkbox" id="g_mus" checked> Music</span></label>
+<label style="grid-column:1/-1">Own music file (optional, loops)<input type="file" id="g_file" accept="audio/*"></label>`;
+function cfg(){const v=i=>$('#'+i).value,[W,H]=v('g_size').split('x').map(Number),k=src&&act().length?cells():null;let sp=null;
+if(k&&$('#g_sp').checked){const a=act(),c=mk(k.W*a.length,k.H);a.forEach((i,j)=>c.getContext('2d').drawImage(k.c[i],j*k.W,0));sp={src:c.toDataURL(),rects:a.map((_,j)=>({x:j*k.W,y:0,w:k.W,h:k.H})),fps:+$('#a_fps').value}}
+let an=null;if($('#g_sp').checked&&LIB.length){an={};LIB.forEach(l=>an[l.name]={src:l.c.toDataURL(),rects:Array.from({length:l.n},(_,j)=>({x:j*l.W,y:0,w:l.W,h:l.H})),fps:l.fps});sp=an[Object.keys(an)[0]]}
+return{anims:an,title:v('g_title'),mode:v('g_mode'),W,H,speed:+v('g_speed'),jump:+v('g_jump'),gravity:+v('g_grav'),lives:+v('g_lives'),coins:+v('g_coins'),enemies:+v('g_en'),sc:+v('g_sc'),seed:+v('g_seed')||1,bg:v('g_bg'),fg:v('g_fg'),sprite:sp,sfx:$('#g_sfx').checked,music:$('#g_mus').checked,vol:v('g_vol')/100,musicSrc:musicData}}
+function play(){if(eng)eng.stop();const c=cfg();eng=Engine($('#g_cv'),c);xapply(c)}
+$('#g_play').onclick=play;$('#g_rnd').onclick=()=>{$('#g_seed').value=1+Math.random()*9998|0;play()};
+$('#gform').addEventListener('change',e=>{if(e.target.id=='g_file'){const f=e.target.files[0];if(!f){musicData=null}else{const r=new FileReader();r.onload=()=>{musicData=r.result;play()};r.readAsDataURL(f);return}}if(eng)play()});
+$('#g_zip').onclick=async()=>{const c=cfg(),E=new TextEncoder(),files=[],an=c.anims;
+if(an){for(const l of LIB){if(!an[l.name])continue;files.push({name:'sprites/'+l.name+'.png',data:new Uint8Array(await(await tob(l.c,'image/png')).arrayBuffer())});an[l.name].src='sprites/'+l.name+'.png'}c.sprite=an[Object.keys(an)[0]]}
+const t=c.title.replace(/[<>&]/g,'');
+files.push({name:'index.html',data:E.encode('<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+t+'</title><link rel="stylesheet" href="style.css"></head><body><canvas id="game"></canvas><script src="config.js"><\/script><script src="game.js"><\/script><script src="custom.js"><\/script></body></html>')},
+{name:'style.css',data:E.encode('html,body{margin:0;height:100%;background:#111}\nbody{display:grid;place-items:center}\ncanvas{max-width:100%;max-height:100vh;image-rendering:pixelated}\n'+xcss())},
+{name:'config.js',data:E.encode('const CONFIG='+JSON.stringify(c,null,1).replace(/</g,'\\u003c')+';\n')},
+{name:'game.js',data:E.encode(Engine.toString()+'\nconst game=Engine(document.getElementById("game"),CONFIG);\n')},{name:'custom.js',data:E.encode('// Your custom script: game.on(fn), game.get(), game.set(key,value)\n'+xjs())});
+save((c.title.replace(/[^\w-]+/g,'_')||'game')+'-game.zip',zip(files));toast('ZIP saved: unzip and open index.html')};
+$('#g_exp').onclick=()=>{const c=cfg(),t=c.title.replace(/[<>&]/g,'');save((c.title.replace(/[^\w-]+/g,'_')||'game')+'.html',`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t}</title><style>html,body{margin:0;height:100%;background:#111}body{display:grid;place-items:center}canvas{max-width:100%;max-height:100vh;image-rendering:pixelated}${xcss()}</style></head><body><canvas id="g"></canvas><script>${Engine.toString()};const game=Engine(document.getElementById('g'),${JSON.stringify(c).replace(/</g,'\\u003c')});${xjs().replace(/<\//g,'<\\/')}<\/script></body></html>`)};
+const QG=["2D platformer","top-down adventure","side-scrolling shooter","endless runner","arcade snake-style game","puzzle game","memory card game","tower defense","boss fight arcade game"],QE=["Vanilla HTML5 Canvas (no libraries)","Phaser 3 (loaded from a CDN)","Kaplay (loaded from a CDN)"],QC=["Keyboard and touch","Keyboard only","Touch only","Keyboard, touch and gamepad"],QD=["easy","medium","hard","gradually increasing"],QA=["synthesised WebAudio sound effects and a looping chiptune track","synthesised WebAudio sound effects only","sound effects and music loaded from files with placeholder paths","no audio"];
+let qMis=[],qSys=[];const QMS=["collect 10 coins","defeat 3 enemies","reach 500 points","build a x4 combo","finish without getting hit","clear the level in under 60 seconds","find a hidden power-up","survive 90 seconds"],roll=()=>{qMis=QMS.slice().sort(()=>Math.random()-.5).slice(0,5);qSys=QSY.slice().sort(()=>Math.random()-.5).slice(0,4)};roll();
+const QM=["collect stars while dodging patrolling robots","reach the exit before the timer runs out","survive waves of enemies for three minutes","match pairs before the moves run out","defend the base by placing towers on a path"];
+const ck=(id,l,c)=>`<label><span><input type="checkbox" id="${id}"${c?' checked':''}> ${l}</span></label>`;
+$('#qform').innerHTML=sel('q_genre','Genre',QG)+sel('q_eng','Technology',QE)+sel('q_ctl','Controls',QC)+sel('q_dif','Difficulty',QD)+sel('q_aud','Audio',QA)+`<label>Number of levels<input type="number" id="q_lv" value="3" min="1" max="50"></label>
+<label style="grid-column:1/-1">Core mechanic<input id="q_mech" placeholder="e.g. collect stars while dodging patrolling robots"></label>
+<label style="grid-column:1/-1">Enemies, obstacles or extras (optional)<input id="q_en" placeholder="e.g. bats that swoop, moving platforms, a boss on the last level"></label>
+<label style="grid-column:1/-1">Win and lose rules (optional)<input id="q_win" placeholder="e.g. win by reaching the flag, lose after 3 hits"></label>`+
+ck('q_sp','Use my sprite sheet',1)+ck('q_ti','Title, pause and game over screens',1)+ck('q_hs','Save high score',1)+ck('q_mob','Responsive canvas and touch controls',1)+ck('q_fx','Particles and screen shake')+ck('q_ms','Random missions',1)+ck('q_sy','Combo, XP levels and power-ups',1)+ck('q_cm','Commented, readable code',1);
+function qgen(){const cu=(xcss().trim()?'\n\nCUSTOM CSS (include as-is)\n'+xcss():'')+(xjs().trim()?'\n\nCUSTOM JS (integrate as-is)\n'+xjs():''),v=i=>$('#'+i).value,c=i=>$('#'+i).checked,ti=$('#g_title').value||'My Sprite Game',vn=v('q_eng').startsWith('Vanilla');
+let sp='';if(c('q_sp')&&src&&act().length){const k=cells();sp=`\n\nART\nPlayer sprite sheet: ${act().length} frames in a single horizontal row, each ${k.W}×${k.H} px, animated at ${$('#a_fps').value} frames per second. Load it from "sprites.png" (easy to swap for a base64 data URI) and draw it with nearest-neighbour scaling so pixels stay crisp. Flip it horizontally when the player faces left. Draw all other objects with simple shapes so the game runs without extra files.`}
+if(c('q_sp')&&LIB.length)sp=`\n\nART\nHero: ${$('#p_subject').value.trim()||'small hero'} (${$('#p_style').value}, ${$('#p_view').value}). Animation groups, each a horizontal strip PNG with frames side by side: `+LIB.map(l=>`"${l.name}" = sprites/${l.name}.png, ${l.n} frame${l.n>1?'s':''} of ${l.W}×${l.H} px at ${l.fps} fps`).join('; ')+`. Switch groups by state: idle when still, walk or run when moving, jump in the air, action or attack on the action key, hurt when hit. Use nearest-neighbour scaling and flip horizontally when facing left. Draw everything else with simple shapes.`;
+const ms2=(c('q_ms')?`\n\nMISSIONS\nEach run, shuffle and pick 3 random missions from this pool, show them in the HUD with live progress, and reward bonus score and XP when each completes: ${qMis.join('; ')}.`:'')+(c('q_sy')?`\n\nPROGRESSION AND JUICE\nCombo multiplier for quick pickups, XP and player levels saved in localStorage, shield and magnet power-ups, particle bursts, screen shake on hits and a celebration when a mission completes.`:'')+'\n\n'+menuTxt();
+const ex=[c('q_ti')&&'title screen, pause (P key) and game over screen with restart',c('q_hs')&&'high score saved in localStorage (wrapped in try/catch)',c('q_mob')&&'canvas that scales to any screen size, with on-screen touch controls on phones',c('q_fx')&&'particles and screen shake for hits and pickups'].filter(Boolean);
+$('#q_out').value=`You are an expert HTML5 game developer. Write a complete, playable 2D game called "${ti}".\n\nTECHNOLOGY\n${v('q_eng')}. Deliver everything in one self-contained .html file with inline CSS and JavaScript${vn?'':' (the library is the only external script)'}. No build step.\n\nGAMEPLAY\nGenre: ${v('q_genre')}.${v('q_mech')?' Core mechanic: '+v('q_mech')+'.':''}${v('q_en')?' Extras: '+v('q_en')+'.':''}${v('q_win')?' Rules: '+v('q_win')+'.':''} ${v('q_lv')} level${v('q_lv')==1?'':'s'}, difficulty: ${v('q_dif')}.\n\nCONTROLS\n${v('q_ctl')}. Show the controls on the title screen.\n\nAUDIO\nUse ${v('q_aud')}. Start audio only after the first user input, add a mute key (M) and a volume setting.${sp}${ms2}\n\nINTERFACE\nHUD with score and lives${ex.length?', plus: '+ex.join('; '):''}.\n\nCODE QUALITY\nUse a fixed-timestep game loop with requestAnimationFrame, keep game state in clear objects, handle window resize, avoid global clutter${c('q_cm')?', and comment each section':''}. No placeholders or TODOs: every feature above must work.\n\nDELIVERABLE\nReply with the full code in a single code block, then three short lines explaining how to run it and how to tweak speed, gravity and difficulty.`+pv()+cu;mgen();gfx()}
+$('#qform').addEventListener('input',qgen);['#x_css','#x_js'].forEach(k=>$(k).addEventListener('input',qgen));
+$('#q_rnd').onclick=()=>{roll();$('#q_genre').value=pick(QG);$('#q_mech').value=pick(QM);$('#q_dif').value=pick(QD);qgen()};
+$('#q_copy').onclick=async()=>{try{await navigator.clipboard.writeText($('#q_out').value)}catch{$('#q_out').select();document.execCommand('copy')}toast('Prompt copied')};
+$('#q_save').onclick=()=>save('game-prompt.txt',$('#q_out').value);
+
+
+const actTxt=()=>$('#p_action').value=='custom'?($('#p_custom').value||'idle'):$('#p_action').value;
+const pv=()=>'\n\nPREVIOUS SPRITE PROMPT (keep all game art consistent with it)\n'+$('#p_out').value+'\nHero action chosen in the prompt step: '+actTxt();
+const MV=[];function mv(){const g=$('#am_grid');g.innerHTML=LIB.length?'':'<p class="hint">No groups yet. Add groups in the Cut step.</p>';MV.length=0;LIB.forEach(l=>{const d=document.createElement('div');d.className='card';d.style.margin=0;const c=mk(l.W,l.H);c.className='ck';c.style.cssText='width:'+Math.min(l.W*2,150)+'px;height:auto';const s=document.createElement('div');s.className='hint';s.textContent=l.name+' · '+l.n+'f · '+l.fps+'fps';d.append(c,s);g.append(d);MV.push({l,c})})}
+function mvt(t){requestAnimationFrame(mvt);if($('#an_multi').hidden||!$('#anim').classList.contains('on'))return;MV.forEach(m=>{const f=(t*m.l.fps/1000|0)%m.l.n,x=m.c.getContext('2d');x.clearRect(0,0,m.l.W,m.l.H);x.drawImage(m.l.c,f*m.l.W,0,m.l.W,m.l.H,0,0,m.l.W,m.l.H)})}requestAnimationFrame(mvt);
+const amt=m=>{$('#an_single').hidden=m;$('#an_multi').hidden=!m;$('#am_t1').className=m?'':'pri';$('#am_t2').className=m?'pri':'';if(m){mv();qgen()}};
+$('#am_t1').onclick=()=>amt(0);$('#am_t2').onclick=()=>amt(1);$('#am_zip').onclick=exAll;$('#am_cut').onclick=()=>go('cut');
+async function exAll(){if(!LIB.length)return toast('Add groups in Cut first');const s=+$('#e_scale').value||1,n=nm(),E=new TextEncoder(),files=[],at={frames:{},animations:{}},W=Math.max(...LIB.map(l=>l.W))*s,H=Math.max(...LIB.map(l=>l.H))*s,big=mk(W*Math.max(...LIB.map(l=>l.n)),H*LIB.length),bx=big.getContext('2d');bx.imageSmoothingEnabled=false;let css='';const png=async c=>new Uint8Array(await(await tob(c,'image/png')).arrayBuffer());
+toast('Exporting '+LIB.length+' groups…');
+for(const[r,l]of LIB.entries()){const c=mk(l.W*l.n*s,l.H*s),x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(l.c,0,0,c.width,c.height);files.push({name:`sheets/${l.name}.png`,data:await png(c)});at.animations[l.name]=[];
+css+=`.${l.name}{width:${l.W*s}px;height:${l.H*s}px;background:url(sheets/${l.name}.png) no-repeat;animation:${l.name} ${(l.n/l.fps).toFixed(3)}s steps(1) infinite;image-rendering:pixelated}\n@keyframes ${l.name}{\n`;
+for(let i=0;i<l.n;i++){const k=`${l.name}_${i}`;bx.drawImage(l.c,i*l.W,0,l.W,l.H,i*W+((W-l.W*s)>>1),r*H+H-l.H*s,l.W*s,l.H*s);at.frames[k]={frame:{x:i*W,y:r*H,w:W,h:H},rotated:false,trimmed:false,sourceSize:{w:W,h:H}};at.animations[l.name].push(k);css+=`  ${(i/l.n*100).toFixed(3)}%{background-position:-${i*l.W*s}px 0}\n`;
+const f=mk(l.W*s,l.H*s),fx=f.getContext('2d');fx.imageSmoothingEnabled=false;fx.drawImage(l.c,i*l.W,0,l.W,l.H,0,0,f.width,f.height);files.push({name:`frames/${l.name}/${l.name}_${String(i+1).padStart(2,'0')}.png`,data:await png(f)})}css+='}\n'}
+at.meta={app:'Sprite Bench',image:n+'-all.png',size:{w:big.width,h:big.height},fps:Object.fromEntries(LIB.map(l=>[l.name,l.fps]))};
+files.push({name:n+'-all.png',data:await png(big)},{name:n+'-atlas.json',data:E.encode(JSON.stringify(at,null,2))},{name:'animations.css',data:E.encode(css)});
+save(n+'-all-animations.zip',zip(files));toast(LIB.length+' animation groups saved in one ZIP')}
+/* graphics prompter */
+const GT=["lush forest","desert ruins","frozen tundra","volcano","neon cyber city","deep space station","haunted castle","underwater reef","candy land","jungle temple"],GD=["bright day","golden sunset","moonlit night","dynamic day-night cycle"],GW=["none","rain","snow","fog","thunderstorm","drifting embers","dynamic weather"],GL=["Standard","High","Ultra","Maximum"],GE=["Canvas 2D (no libraries)","WebGL 2 with custom shaders","Phaser 3 (CDN)","PixiJS (CDN)"];
+const GF=[["gx_par","Parallax background, 6+ depth layers"],["gx_lit","Dynamic lighting, glow and soft shadows"],["gx_prt","Particle systems: dust, sparks, pickups, impacts"],["gx_pp","Post-processing: bloom, vignette, colour grading, chromatic aberration"],["gx_tile","Animated tiles, swaying foliage, water with reflections"],["gx_juice","Screen shake, hit-stop, squash and stretch, motion trails"],["gx_ui","Skinned HUD, damage numbers, animated menu transitions"],["gx_amb","Ambient life: birds, fireflies, drifting clouds"],["gx_perf","Pre-rendered layers and 60 fps performance guard"],["gx_crt","Optional CRT scanline toggle"]];
+$('#gx_form').innerHTML=sel('gx_lv','Graphics level',GL)+sel('gx_eng','Rendering',GE)+sel('gx_th','World theme',GT)+sel('gx_td','Time of day',GD)+sel('gx_wx','Weather',GW)+GF.map(f=>ck(f[0],f[1],1)).join('')+'<label style="grid-column:1/-1">Extra graphics notes (optional)<input id="gx_note" placeholder="e.g. boss arena with lava reflections"></label>';
+$('#gx_lv').value='Maximum';
+function gfx(){const v=i=>$('#'+i).value,on=GF.filter(f=>$('#'+f[0]).checked).map(f=>'- '+f[1]),g=LIB.length?LIB.map(l=>`- "${l.name}": ${l.n} frame${l.n>1?'s':''}, ${l.W}×${l.H} px, ${l.fps} fps, strip PNG sprites/${l.name}.png`).join('\n'):'- the loaded sprite sheet (cut it in the Cut step)';
+$('#gx_out').value=`You are a senior 2D game graphics programmer and technical artist. Take my game to ${v('gx_lv')} visual quality using ${v('gx_eng')}. One self-contained .html file, no build step.\n\nHERO AND ART DIRECTION (from the Prompt step)\n${$('#p_out').value}\nSource action: ${actTxt()}. Camera: ${v('p_view')}. Style: ${v('p_style')}, ${v('p_shade')}, ${v('p_outline')}, ${v('p_pal')}.\n\nANIMATIONS (from the Animate step)\n${g}\nSwitch by state: idle, walk or run, jump, action or attack, hurt. Keep nearest-neighbour scaling so pixels stay crisp, flip when facing left, and keep the ${actTxt()} animation as the hero's signature move with extra effects.\n\nWORLD\nTheme: ${v('gx_th')}. Time of day: ${v('gx_td')}. Weather: ${v('gx_wx')}. Palette must match the sprite palette.\n\nGRAPHICS FEATURES\n${on.join('\n')}${v('gx_note')?'\n- '+v('gx_note'):''}\n\nRULES\nEvery feature above must work with no placeholders. Draw missing art procedurally in the same style. Add a quality setting (Low, Medium, High, Maximum) that scales particles and effects, and respect prefers-reduced-motion.\n\nDELIVERABLE\nFull code in one code block, then three short lines on how to tune the graphics.`;
+const st=`${v('p_style')}, ${v('p_shade')}, ${v('p_outline')}, ${v('p_pal')}, ${v('gx_th')}, ${v('gx_td')}`,P=(t,d)=>`${t.toUpperCase()}\n${d}, ${st}, ${v('p_bg')}, no text, no grid lines, no watermark`;
+$('#gx_pack').value=[P('Parallax layer 1 (sky)','seamless horizontally tiling sky background 512×256'),P('Parallax layer 2 (far)','seamless far mountains or skyline silhouettes 512×256'),P('Parallax layer 3 (mid)','seamless mid-ground scenery 512×256'),P('Parallax layer 4 (near)','seamless near trees or structures 512×256'),P('Tileset','game tileset, 16 tiles in a 4×4 grid, 32×32 each: ground, edges, corners, platforms, water'),P('Enemy','enemy matching the hero, 6-frame walk cycle, single row, 64×64 each'),P('Pickups','coin, gem, heart, shield and magnet icons, 4-frame spin each, single row, 32×32'),P('Hit and impact effects','8-frame hit spark, 6-frame dust puff, 12-frame explosion, single row each'),P('UI kit','health hearts, coin counter, buttons, panels and icons on one sheet')].join('\n\n');}
+$('#gx_form').addEventListener('input',gfx);
+$('#gx_copy').onclick=async()=>{try{await navigator.clipboard.writeText($('#gx_out').value)}catch{$('#gx_out').select();document.execCommand('copy')}toast('Graphics prompt copied')};
+$('#gx_pcopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#gx_pack').value)}catch{$('#gx_pack').select();document.execCommand('copy')}toast('Asset prompts copied')};
+$('#gx_save').onclick=()=>save('graphics-prompt.txt',$('#gx_out').value);$('#gx_psave').onclick=()=>save('asset-prompts.txt',$('#gx_pack').value);
+$('#gx_rnd').onclick=()=>{$('#gx_th').value=pick(GT);$('#gx_td').value=pick(GD);$('#gx_wx').value=pick(GW);gfx()};
+modes();gen();qgen();mv();requestAnimationFrame(tick);
+</script></body></html>
